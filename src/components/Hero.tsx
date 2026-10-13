@@ -70,7 +70,7 @@ export const Hero: React.FC<HeroProps> = ({ onStartTryOn, onExploreCollection })
 					<div className='lg:col-span-6 relative'>
 						<div className='relative rounded-2xl overflow-hidden shadow-xl border border-stone-200 aspect-[16/10] bg-stone-200 group'>
 							<img
-								src='/src/assets/images/hero_kids_fashion_1790607375922.jpg'
+								src='/images/hero_kids_fashion_1790607375922.jpg'
 								alt='لباس شیک کودکان ۲ تا ۹ سال'
 								className='w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out'
 								referrerPolicy='no-referrer'
