@@ -1,0 +1,6 @@
+{
+	"name": "فروشگاه لباس کودک نی‌نی‌استایل با پرو آنلاین",
+	"description": "فروشگاه تخصصی پوشاک کودکان ۲ تا ۹ سال با قابلیت پرو هوشمند آنلاین لباس روی عکس کودک ",
+	"requestFramePermissions": [],
+	"majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
