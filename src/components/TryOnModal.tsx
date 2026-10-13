@@ -10,8 +10,6 @@ import {
 	Info,
 	CheckCircle2,
 	AlertCircle,
-	ChevronLeft,
-	ChevronRight,
 	SlidersHorizontal,
 } from 'lucide-react';
 import { Product } from '../data/products';
@@ -46,10 +44,6 @@ export const TryOnModal: React.FC<TryOnModalProps> = ({
 
 	// Webhook settings configured for n8n
 	const webhookUrl = 'https://gedase6607.app.n8n.cloud/webhook/sendphotos';
-	const sendMode: 'multipart' = 'multipart';
-	const childFieldName = 'Character_Image';
-	const clothingFieldName = 'Product_Image';
-	const includeAlternativeKeys = true;
 
 	// Result state
 	const [resultImage, setResultImage] = useState<string | null>(null);
@@ -79,23 +73,7 @@ export const TryOnModal: React.FC<TryOnModalProps> = ({
 		reader.readAsDataURL(file);
 	};
 
-	// Convert image URL to Base64 if needed for clean webhook transport
-	const convertUrlToBase64 = async (url: string): Promise<string> => {
-		if (url.startsWith('data:image/')) return url;
-		try {
-			const res = await fetch(url);
-			const blob = await res.blob();
-			return new Promise((resolve) => {
-				const reader = new FileReader();
-				reader.onloadend = () => resolve(reader.result as string);
-				reader.readAsDataURL(blob);
-			});
-		} catch {
-			return url;
-		}
-	};
-
-	// Create composite simulated preview if needed
+	// Fallback composite simulation
 	const createCompositeSimulation = async (
 		childImgSrc: string,
 		clothingImgSrc: string
@@ -153,6 +131,37 @@ export const TryOnModal: React.FC<TryOnModalProps> = ({
 		});
 	};
 
+	const compressAndConvertToBase64 = async (
+		urlOrDataUrl: string,
+		maxDim = 1024
+	): Promise<string> => {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			img.crossOrigin = 'anonymous';
+			img.onload = () => {
+				let { width, height } = img;
+				if (width > height && width > maxDim) {
+					height = Math.round((height * maxDim) / width);
+					width = maxDim;
+				} else if (height > maxDim) {
+					width = Math.round((width * maxDim) / height);
+					height = maxDim;
+				}
+
+				const canvas = document.createElement('canvas');
+				canvas.width = width;
+				canvas.height = height;
+				const ctx = canvas.getContext('2d');
+				if (!ctx) return reject(new Error('Canvas context failure'));
+
+				ctx.drawImage(img, 0, 0, width, height);
+				resolve(canvas.toDataURL('image/jpeg', 0.8));
+			};
+			img.onerror = (e) => reject(e);
+			img.src = urlOrDataUrl;
+		});
+	};
+
 	// Submit to try-on
 	const handleStartTryOn = async () => {
 		if (!childImage || !selectedProduct) {
@@ -164,36 +173,66 @@ export const TryOnModal: React.FC<TryOnModalProps> = ({
 		setError(null);
 		setResultImage(null);
 
-		try {
-			const childB64 = await convertUrlToBase64(childImage);
-			const clothB64 = await convertUrlToBase64(selectedProduct.image);
+		const targetWebhook =
+			webhookUrl?.trim() || 'https://gedase6607.app.n8n.cloud/webhook/sendphotos';
 
-			const response = await fetch('https://gedase6607.app.n8n.cloud/webhook/sendphotos', {
+		try {
+			const [childB64, clothB64] = await Promise.all([
+				compressAndConvertToBase64(childImage),
+				compressAndConvertToBase64(selectedProduct.image),
+			]);
+
+			const payload = {
+				childImage: childB64,
+				clothingImage: clothB64,
+				clothingTitle: selectedProduct.title,
+				clothingId: selectedProduct.id,
+				childAge: selectedProduct.ageRangeLabel || '',
+				childGender: selectedProduct.genderLabel || '',
+			};
+
+			const response = await fetch(targetWebhook, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					childImage: childB64,
-					clothingImage: clothB64,
-					clothingTitle: selectedProduct.title,
-					clothingId: selectedProduct.id,
-					childAge: selectedProduct.ageRangeLabel,
-					childGender: selectedProduct.genderLabel,
-					webhookUrl,
-					sendMode: 'multipart',
-					childFieldName,
-					clothingFieldName,
-					includeAlternativeKeys,
-				}),
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(payload),
 			});
 
-			const data = await response.json();
+			if (!response.ok) {
+				throw new Error(`n8n webhook error: ${response.status} ${response.statusText}`);
+			}
 
-			if (data.success && data.resultImage) {
-				setResultImage(data.resultImage);
+			// بررسی هدر پاسخ برای هندل کردن باینری بودن تصویر
+			const contentType = response.headers.get('content-type') || '';
+
+			if (contentType.includes('image/') || contentType.includes('octet-stream')) {
+				const blob = await response.blob();
+				const imageUrl = URL.createObjectURL(blob);
+				setResultImage(imageUrl);
 			} else {
-				console.warn('Try-on server response:', data);
-				const composite = await createCompositeSimulation(childImage, selectedProduct.image);
-				setResultImage(composite);
+				// اگر پاسخ باینری نبود و JSON برگشت
+				const text = await response.text();
+				let parsedData: any = null;
+				try {
+					parsedData = JSON.parse(text);
+				} catch {
+					parsedData = null;
+				}
+
+				const outputImage =
+					parsedData?.resultImage ||
+					parsedData?.image ||
+					parsedData?.output ||
+					(Array.isArray(parsedData) && parsedData[0]?.resultImage);
+
+				if (outputImage) {
+					setResultImage(outputImage);
+				} else {
+					console.warn('پاسخ سرور فاقد تصویر خروجی بود؛ سوییچ به شبیه‌ساز محلی:', text);
+					const composite = await createCompositeSimulation(childImage, selectedProduct.image);
+					setResultImage(composite);
+				}
 			}
 		} catch (err: any) {
 			console.error('Try-on request failed:', err);
