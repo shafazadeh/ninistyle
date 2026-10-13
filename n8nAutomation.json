@@ -1,4 +1,5 @@
 {
+	"name": "Generate Image Nano Banana 2026",
 	"nodes": [
 		{
 			"parameters": {
@@ -34,17 +35,17 @@
 			},
 			"type": "n8n-nodes-base.set",
 			"typeVersion": 3.4,
-			"position": [1392, 240],
+			"position": [944, 240],
 			"id": "25749477-3657-4a12-b0b5-2f767e1e138e",
 			"name": "Edit Fields"
 		},
 		{
 			"parameters": {
-				"jsCode": "const characterImageBase64String =\n  $input.all()[0]?.json[\"character image data\"];\nconst productImageBase64String = $(\"Product Image Base64 String\").all()[0]\n  ?.json[\"product image data\"];\n\nconst productImageUrl = `data:image/png;base64,${productImageBase64String}`;\nconst characterImageUrl = `data:image/png;base64,${characterImageBase64String}`;\n\nreturn { productImageUrl, characterImageUrl };\n"
+				"jsCode": "// دریافت آبجکت ارسال‌شده از سمت فرانت‌اند (با ساپورت حالت‌های body دار و مستقیم)\nconst item = $input.first()?.json || {};\nconst body = item.body || item;\n\n// فرانت‌اند ممکن است مقادیر را با data:image/.../base64, فرستاده باشد یا بیس۶۴ خالص\nconst cleanBase64 = (val) => {\n  if (!val || typeof val !== 'string') return '';\n  return val.includes(',') ? val.split(',')[1] : val;\n};\n\n// گرفتن عکس‌ها از کلیدهای احتمالی فرانت\nconst rawProduct = body.clothingImage || body.productImage || body.clothB64 || '';\nconst rawCharacter = body.childImage || body.characterImage || body.childB64 || '';\n\nconst productBase64 = cleanBase64(rawProduct);\nconst characterBase64 = cleanBase64(rawCharacter);\n\n// ساخت Data URL استاندارد برای نود Nano / avalai\nconst productImageUrl = productBase64 ? `data:image/jpeg;base64,${productBase64}` : '';\nconst characterImageUrl = characterBase64 ? `data:image/jpeg;base64,${characterBase64}` : '';\n\nreturn {\n  productImageUrl,\n  characterImageUrl,\n  clothingTitle: body.clothingTitle || '',\n  clothingId: body.clothingId || ''\n};\n"
 			},
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
-			"position": [720, 336],
+			"position": [272, 336],
 			"id": "6fcecf89-6104-453a-8868-c52e4a60335c",
 			"name": "Code"
 		},
@@ -61,7 +62,7 @@
 			},
 			"type": "n8n-nodes-base.httpRequest",
 			"typeVersion": 4.2,
-			"position": [944, 336],
+			"position": [496, 336],
 			"id": "1e9ac146-f3b2-4d37-a440-7df0f5e7a8a2",
 			"name": "Nano 🍌",
 			"credentials": {
@@ -70,32 +71,6 @@
 					"name": "aval ai"
 				}
 			}
-		},
-		{
-			"parameters": {
-				"operation": "binaryToPropery",
-				"binaryPropertyName": "Product_Image",
-				"destinationKey": "product image data",
-				"options": {}
-			},
-			"type": "n8n-nodes-base.extractFromFile",
-			"typeVersion": 1,
-			"position": [272, 336],
-			"id": "6d8b24d1-b7a6-429a-a9a3-10d6dcfc01b0",
-			"name": "Product Image Base64 String"
-		},
-		{
-			"parameters": {
-				"operation": "binaryToPropery",
-				"binaryPropertyName": "Character_Image",
-				"destinationKey": "character image data",
-				"options": {}
-			},
-			"type": "n8n-nodes-base.extractFromFile",
-			"typeVersion": 1,
-			"position": [496, 336],
-			"id": "1d5c1abd-5072-4c13-8fac-81102e629ca0",
-			"name": "Character Image Base64 String"
 		},
 		{
 			"parameters": {
@@ -124,7 +99,7 @@
 			},
 			"type": "n8n-nodes-base.if",
 			"typeVersion": 2.2,
-			"position": [1168, 336],
+			"position": [720, 336],
 			"id": "6870ca0a-331d-467a-802c-1fa8273a2029",
 			"name": "If"
 		},
@@ -132,7 +107,7 @@
 			"parameters": {},
 			"type": "n8n-nodes-base.noOp",
 			"typeVersion": 1,
-			"position": [1392, 432],
+			"position": [944, 432],
 			"id": "41219143-6c2b-43e3-9e89-c316a23f8022",
 			"name": "No Operation, do nothing"
 		},
@@ -144,7 +119,7 @@
 			},
 			"type": "n8n-nodes-base.convertToFile",
 			"typeVersion": 1.1,
-			"position": [1616, 240],
+			"position": [1168, 240],
 			"id": "dd856922-d9b2-456c-97eb-2a780f83d288",
 			"name": "Convert to Binary"
 		},
@@ -153,14 +128,17 @@
 				"httpMethod": "POST",
 				"path": "sendphotos",
 				"responseMode": "responseNode",
-				"options": {}
+				"options": {
+					"allowedOrigins": "*"
+				}
 			},
 			"type": "n8n-nodes-base.webhook",
 			"typeVersion": 2.2,
 			"position": [48, 336],
 			"id": "7e225fbb-ebbc-4683-813b-e5797f263990",
 			"name": "Webhook",
-			"webhookId": "d512e9d4-3faf-4fea-8d2f-13bcdf04f987"
+			"webhookId": "d512e9d4-3faf-4fea-8d2f-13bcdf04f987",
+			"alwaysOutputData": false
 		},
 		{
 			"parameters": {
@@ -170,11 +148,12 @@
 			},
 			"type": "n8n-nodes-base.respondToWebhook",
 			"typeVersion": 1.5,
-			"position": [1840, 240],
+			"position": [1392, 240],
 			"id": "cdca1d79-c850-416e-80b4-b88c9f888a04",
 			"name": "Respond to Webhook"
 		}
 	],
+	"pinData": {},
 	"connections": {
 		"Edit Fields": {
 			"main": [
@@ -203,28 +182,6 @@
 				[
 					{
 						"node": "If",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Product Image Base64 String": {
-			"main": [
-				[
-					{
-						"node": "Character Image Base64 String",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Character Image Base64 String": {
-			"main": [
-				[
-					{
-						"node": "Code",
 						"type": "main",
 						"index": 0
 					}
@@ -264,7 +221,7 @@
 			"main": [
 				[
 					{
-						"node": "Product Image Base64 String",
+						"node": "Code",
 						"type": "main",
 						"index": 0
 					}
@@ -272,8 +229,16 @@
 			]
 		}
 	},
-	"pinData": {},
+	"active": true,
+	"settings": {
+		"executionOrder": "v1",
+		"binaryMode": "separate"
+	},
+	"versionId": "8727873a-3dd4-4c62-80b4-0f583cf76c08",
 	"meta": {
 		"instanceId": "bc51ef94edc7aa494ac6b4e4e4523bece8a05ea238a680f0bbe43888adba4bab"
-	}
+	},
+	"nodeGroups": [],
+	"id": "hFiTbV92g4GValeM",
+	"tags": []
 }
